@@ -2,6 +2,7 @@
 #include <MFRC522.h>
 
 #include "interface.hpp"
+#include "attendee.hpp"
 
 const int RST_PIN = 16;
 const int SS_PIN = 2;
@@ -14,16 +15,11 @@ struct User {
     char liu_id[9];
 };
 
-struct Event_attendee {
-  char liu_id[9];
-  String note;
-  bool logged = false;
-};
 
 int user_count = 0;
 int event_count = 0;
 User users[30];
-Event_attendee events_attendees[100];
+EventAttendee event_attendees[100];
 
 uint8_t last_uid[UID_LENGTH];
 
@@ -50,11 +46,9 @@ void setup() {
     // users[1].liu_id = "yoloo420";
     user_count = 2;
 
-    strcpy(events_attendees[0].liu_id, "frask812");
-    events_attendees[0].note = " hej, jag tål inte emacs";
+    strcpy(event_attendees[0].liu_id, "frask812");
+    event_attendees[0].note = " hej, jag tål inte emacs";
     event_count = 1;
-
-    
 }
 
 
@@ -99,6 +93,13 @@ void loop() {
         interface.handle_input(Serial.read(), output_buf);
         Serial.write(output_buf);
         Serial.flush();
+
+        auto new_attendee = interface.get_new_attendee();
+        if(new_attendee != nullptr) {
+            strcpy(event_attendees[event_count].liu_id, new_attendee->liu_id);
+            event_attendees[event_count].note = new_attendee->note;
+            event_count += 1;
+        }
     }
     if(interface.state == InterfaceState::WAIT_FOR_CARD) {
         reset_last_uid();
@@ -119,22 +120,21 @@ void dump_byte_array(byte *buffer, byte bufferSize) {
 }
 
 void check_event(char* liu_id) {
-      bool found = false;
-      for(int i = 0; i < event_count; i++) {
-          if(strcmp(liu_id, events_attendees[i].liu_id) == 0) {
-                if(!events_attendees[i].logged){
-                    events_attendees[i].logged = true;
-                    Serial.print(liu_id);
-                    Serial.println(events_attendees[i].note);
-                    found = true;  
-                } else {
-                    Serial.println("Allready logged");
-                    found = true;
-                }
-                
-          }
-      }
-      if(!found){
-          Serial.println("Not registered for this event!");
-      }
+    bool found = false;
+    for(int i = 0; i < event_count; i++) {
+        if(strcmp(liu_id, event_attendees[i].liu_id) == 0) {
+              if(!event_attendees[i].logged){
+                  event_attendees[i].logged = true;
+                  Serial.print(liu_id);
+                  Serial.println(event_attendees[i].note);
+                  found = true;  
+              } else {
+                  Serial.println("Allready logged");
+                  found = true;
+              }
+        }
+    }
+    if(!found){
+        Serial.println("Not registered for this event!");
+    }
 }
