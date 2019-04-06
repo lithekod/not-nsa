@@ -9,10 +9,14 @@ enum class InterfaceState {
 
 class Interface {
     public:
-        // Handles a single line of input.
+        // Handles a single char of input. Content to write to the serial port
+        // is put in to_output. It must be long enough to contain all messages
+        // that can outputed.
         void handle_input(char next_byte, char* to_output);
 
         InterfaceState state;
+        // If InterfaceState is WAIT_FOR_CARD, this contains the LIU id to
+        // register when a new card is scanned
         char liu_id_to_register[9];
     private:
         char line_buffer[128];

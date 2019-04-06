@@ -67,12 +67,15 @@ void loop() {
                     interface.state = InterfaceState::WAITING;
                     Serial.println("User registered");
                     user_count += 1;
+                    reset_last_uid();
                 }
                 else {
                     Serial.println("Unrecognised LIU ID");
                 }
             }
         }
+    }
+    else {
     }
 
 
@@ -83,6 +86,14 @@ void loop() {
         Serial.write(output_buf);
         Serial.flush();
     }
+    if(interface.state == InterfaceState::WAIT_FOR_CARD) {
+        reset_last_uid();
+    }
+}
+
+
+void reset_last_uid() {
+    memset(last_uid, 0, UID_LENGTH);
 }
 
 
