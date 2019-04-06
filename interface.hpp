@@ -4,16 +4,17 @@
 enum class InterfaceState {
     WAITING,
     READ_USER,
-    WAIT_FOR_ID,
+    WAIT_FOR_CARD,
 };
 
 class Interface {
     public:
         // Handles a single line of input.
-        char* handle_line(char* line, char* to_output);
-    private:
-        InterfaceState state;
+        void handle_input(char next_byte, char* to_output);
 
+        InterfaceState state;
+        char liu_id_to_register[9];
+    private:
         char line_buffer[128];
         char line_length = 0;
 };

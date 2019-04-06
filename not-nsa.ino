@@ -24,7 +24,7 @@ const uint8_t user1_id[UID_LENGTH] = {0xB4, 0x25, 0xD9, 0x1E};
 
 char username;
 
-InterfaceState interface_state;
+Interface interface;
 
 
 void setup() {
@@ -47,27 +47,44 @@ void setup() {
 void loop() {
     // Reset the loop if no new card present on the sensor/reader. This saves
     // the entire process when idle.
-    if (!rfid.PICC_IsNewCardPresent()) {
-        return;
-    }
-
-    // Select one of the cards
-    if (!rfid.PICC_ReadCardSerial()) {
-        return;
-    }
-
-    // If we got a new card ID
-    if(memcmp(rfid.uid.uidByte, last_uid, UID_LENGTH) != 0) {
-        memcpy(last_uid, rfid.uid.uidByte, UID_LENGTH);
-        if(interface_state == WAITING) {
+    if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
+        // If we got a new card ID
+        if(memcmp(rfid.uid.uidByte, last_uid, UID_LENGTH) != 0) {
+            memcpy(last_uid, rfid.uid.uidByte, UID_LENGTH);
+            bool recognised_card = false;
             for(size_t i = 0; i < user_count; i++) {
                 if(memcmp(rfid.uid.uidByte, users[i].uid, UID_LENGTH) == 0) {
                     Serial.println(users[i].liu_id);
+
+                    recognised_card = true;
+                }
+            }
+
+            if(!recognised_card) {
+                if(interface.state == InterfaceState::WAIT_FOR_CARD) {
+                    memcpy(users[user_count].uid, rfid.uid.uidByte, UID_LENGTH);
+                    strcpy(users[user_count].liu_id, interface.liu_id_to_register);
+                    interface.state = InterfaceState::WAITING;
+                    Serial.println("User registered");
+                    user_count += 1;
+                }
+                else {
+                    Serial.println("Unrecognised LIU ID");
                 }
             }
         }
     }
+
+
+    while(Serial.available() > 0) {
+        char output_buf[128];
+
+        interface.handle_input(Serial.read(), output_buf);
+        Serial.write(output_buf);
+        Serial.flush();
+    }
 }
+
 
 void dump_byte_array(byte *buffer, byte bufferSize) {
     for (byte i = 0; i < bufferSize; i++) {
