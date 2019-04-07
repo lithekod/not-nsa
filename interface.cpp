@@ -1,5 +1,7 @@
 #include "interface.hpp"
 
+#include "constants.hpp"
+
 #include <Arduino.h>
 
 #include <cstring>
@@ -13,6 +15,7 @@ const char* CARD_SCAN_MSG = "Scan card\n\r";
 const char* INVALID_ID_MSG = "Liu ID must be 8 characters\n\r";
 const char* READ_EVENT_OUTPUT = "Enter event details (liu id, notes\\n). End with ;done;\n\r>";
 const char* EVENT_REGISTRATION_DONE_MSG = "Event entered, bye!\r\n>";
+const char* INVALID_ATTENDEE_MSG = "Attendee must be 'liuid123,<notes>'\r\n>";
 
 void Interface::handle_input(char next_byte, char* to_output) {
     // If there is a byte. This is probably redundant
@@ -39,12 +42,13 @@ void Interface::handle_input(char next_byte, char* to_output) {
             }
             else if(state == InterfaceState::READ_USER) {
                 // Do some basic validation
-                if(strlen(line_buffer) != 8) {
+                if(strlen(line_buffer) != LIU_ID_LEN) {
                     // Tell the user if the ID was invalid
                     strcpy(to_output, INVALID_ID_MSG);
                 }
                 else {
                     // Store the current line as the LIU id to save when we get a scan
+                    // Length of liu id + null terminator
                     strcpy(liu_id_to_register, line_buffer);
                     // Tell the user to scan a card
                     strcpy(to_output, CARD_SCAN_MSG);
@@ -59,10 +63,16 @@ void Interface::handle_input(char next_byte, char* to_output) {
                     state = InterfaceState::WAITING;
                 }
                 else {
-                    // TODO: Replace 9 with constant
-                    line_buffer[8] = '\0';
-                    new_attendee = EventAttendee(line_buffer, line_buffer + 9);
-                    has_new_attendee = true;
+                    // The format of the sent data is '<liu_id><some char><notes>' The length
+                    // must be at least LIU_ID_LEN plus 1
+                    if(strlen(line_buffer) >= LIU_ID_LEN + 1) {
+                        line_buffer[LIU_ID_LEN] = '\0';
+                        new_attendee = EventAttendee(line_buffer, line_buffer + LIU_ID_LEN+1);
+                        has_new_attendee = true;
+                    }
+                    else {
+                        strcpy(to_output, INVALID_ATTENDEE_MSG);
+                    }
                 }
             }
             // We are done with this line, reset it

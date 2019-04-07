@@ -4,11 +4,7 @@
 
 #include "interface.hpp"
 #include "attendee.hpp"
-
-const int RST_PIN = 16;
-const int SS_PIN = 2;
-const int UID_LENGTH = 4;
-const int END_ADDR_ADDR = 0;
+#include "constants.hpp"
 
 int addr = 1;
 
@@ -16,19 +12,17 @@ MFRC522 rfid(SS_PIN, RST_PIN);
 
 struct User {
     uint8_t uid[UID_LENGTH];
-    char liu_id[9];
+    // Length of liu id + null terminator
+    char liu_id[LIU_ID_LEN + 1];
 };
 
 
 int user_count = 0;
 int event_count = 0;
-User users[30];
+User users[300];
 EventAttendee event_attendees[100];
 
 uint8_t last_uid[UID_LENGTH];
-
-const uint8_t user0_id[UID_LENGTH] = {0xFC, 0x86, 0xAD, 0x08};
-const uint8_t user1_id[UID_LENGTH] = {0xB4, 0x25, 0xD9, 0x1E};
 
 char username;
 
@@ -41,15 +35,11 @@ void setup() {
     EEPROM.begin(512);
     rfid.PCD_Init();
     rfid.PCD_DumpVersionToSerial();
-    //clear_eeprom(); // DANGER! DANGER! Uncomment only if you want to clear the eeprom
+    // clear_eeprom(); // DANGER! DANGER! Uncomment only if you want to clear the eeprom
     Serial.println("Done");
 
     addr = end_addr();
     init_users();
-
-    strcpy(event_attendees[0].liu_id, "frask812");
-    event_attendees[0].note = " hej, jag tål inte emacs";
-    event_count = 1;
 }
 
 
@@ -159,7 +149,8 @@ void init_users() {
     // stored in the eeprom to the users array.
     int ptr = 1;
     uint8_t temp_uid[UID_LENGTH];
-    char temp_liu_id[9];
+    // Length of liu ID + null terminator
+    char temp_liu_id[LIU_ID_LEN+1];
     
     while (ptr < addr) {
         // Get UID
@@ -168,10 +159,10 @@ void init_users() {
         }
 
         // Get Liu ID
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < LIU_ID_LEN; i++) {
             temp_liu_id[i] = EEPROM.read(i+UID_LENGTH+ptr);
         }
-        temp_liu_id[8] = '\0';
+        temp_liu_id[LIU_ID_LEN] = '\0';
 
         
         memcpy(users[user_count].uid, temp_uid, UID_LENGTH);
