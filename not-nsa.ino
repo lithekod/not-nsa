@@ -5,6 +5,7 @@
 #include "interface.hpp"
 #include "attendee.hpp"
 #include "constants.hpp"
+#include "registration.hpp"
 
 int addr = 1;
 
@@ -38,49 +39,85 @@ void setup() {
     // clear_eeprom(); // DANGER! DANGER! Uncomment only if you want to clear the eeprom
     Serial.println("Done");
 
+    // pinMode(GREEN_PIN, OUTPUT);
+    // pinMode(YELLOW_PIN, OUTPUT);
+    // pinMode(RED_PIN, OUTPUT);
+
+    // digitalWrite(GREEN_PIN, LOW);
+    // digitalWrite(YELLOW_PIN, LOW);
+    // digitalWrite(RED_PIN, LOW);
+
     addr = end_addr();
     init_users();
 }
 
+enum class CardState {
+    RECOGNISED,
+    UNRECOGNISED,
+    SAME_CARD,
+    NO_CARD
+};
+
 
 void loop() {
+    CardState state = CardState::NO_CARD;
+    char* liu_id;
+    uint8_t* uid;
+
     // Reset the loop if no new card present on the sensor/reader. This saves
     // the entire process when idle.
     if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
+        state = CardState::UNRECOGNISED;
+        uid = rfid.uid.uidByte;
         // If we got a new card ID
         if(memcmp(rfid.uid.uidByte, last_uid, UID_LENGTH) != 0) {
             memcpy(last_uid, rfid.uid.uidByte, UID_LENGTH);
-            bool recognised_card = false;
             for(size_t i = 0; i < user_count; i++) {
                 if(memcmp(rfid.uid.uidByte, users[i].uid, UID_LENGTH) == 0) {
-                    Serial.println(users[i].liu_id);
-                    check_event(users[i].liu_id);
-                    recognised_card = true;
-                }
-            }
-
-            if(!recognised_card) {
-                if(interface.state == InterfaceState::WAIT_FOR_CARD) {
-                    memcpy(users[user_count].uid, rfid.uid.uidByte, UID_LENGTH);
-                    strcpy(users[user_count].liu_id, interface.liu_id_to_register);
-                    interface.state = InterfaceState::WAITING;
-
-                    // Write to eeprom
-                    save_uid(rfid.uid.uidByte, UID_LENGTH);
-                    save_liu_id(interface.liu_id_to_register);
-                    EEPROM.write(END_ADDR_ADDR, addr);
-
-                    Serial.println("User registered");
-                    user_count += 1;
-                    reset_last_uid();
-                }
-                else {
-                    Serial.println("Unrecognised LIU ID");
+                    state = CardState::RECOGNISED;
+                    liu_id = users[i].liu_id;
                 }
             }
         }
+        else {
+            state = CardState::SAME_CARD;
+        }
     }
-    else {
+
+    if(state == CardState::RECOGNISED) {
+        RegistrationState registration_state;
+        const char* note;
+        // TODO: Replace with c++17 structured binding
+        std::tie(registration_state, note) = check_registration(liu_id, event_attendees, event_count);
+
+        Serial.print("LIU id: ");
+        Serial.println(liu_id);
+        if(registration_state == RegistrationState::SUCCESS) {
+            Serial.println("Registered!");
+            Serial.println(note);
+        }
+        else {
+            Serial.println("Not registered for event");
+        }
+    }
+    if(state == CardState::UNRECOGNISED) {
+        if(interface.state == InterfaceState::WAIT_FOR_CARD) {
+            memcpy(users[user_count].uid, rfid.uid.uidByte, UID_LENGTH);
+            strcpy(users[user_count].liu_id, interface.liu_id_to_register);
+            interface.state = InterfaceState::WAITING;
+
+            // Write to eeprom
+            save_uid(rfid.uid.uidByte, UID_LENGTH);
+            save_liu_id(interface.liu_id_to_register);
+            EEPROM.write(END_ADDR_ADDR, addr);
+
+            Serial.println("User registered");
+            user_count += 1;
+            reset_last_uid();
+        }
+        else {
+            Serial.println("Unrecognised LIU id");
+        }
     }
 
     while(Serial.available() > 0) {
@@ -173,22 +210,3 @@ void init_users() {
 }
 
 
-void check_event(char* liu_id) {
-    bool found = false;
-    for(int i = 0; i < event_count; i++) {
-        if(strcmp(liu_id, event_attendees[i].liu_id) == 0) {
-              if(!event_attendees[i].logged){
-                  event_attendees[i].logged = true;
-                  Serial.print(liu_id);
-                  Serial.println(event_attendees[i].note);
-                  found = true;  
-              } else {
-                  Serial.println("Allready logged");
-                  found = true;
-              }
-        }
-    }
-    if(!found){
-        Serial.println("Not registered for this event!");
-    }
-}
