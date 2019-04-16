@@ -39,7 +39,7 @@ void setup() {
     // clear_eeprom(); // DANGER! DANGER! Uncomment only if you want to clear the eeprom
     Serial.println("Done");
 
-    // pinMode(GREEN_PIN, OUTPUT);
+    // pinMode(15, OUTPUT);
     // pinMode(YELLOW_PIN, OUTPUT);
     // pinMode(RED_PIN, OUTPUT);
 
@@ -110,6 +110,7 @@ void loop() {
             save_uid(rfid.uid.uidByte, UID_LENGTH);
             save_liu_id(interface.liu_id_to_register);
             EEPROM.write(END_ADDR_ADDR, addr);
+            EEPROM.commit();
 
             Serial.println("User registered");
             user_count += 1;
@@ -137,7 +138,6 @@ void loop() {
     if(interface.state == InterfaceState::WAIT_FOR_CARD) {
         reset_last_uid();
     }
-    EEPROM.commit();
 }
 
 
@@ -179,6 +179,7 @@ void clear_eeprom() {
     // DANGER! DANGER!
     // Running this function will result in loss of user data!
     EEPROM.write(END_ADDR_ADDR, 1);
+    EEPROM.commit();
 }
 
 void init_users() {
@@ -195,13 +196,15 @@ void init_users() {
             temp_uid[i] = EEPROM.read(i+ptr);
         }
 
+        Serial.print(" ");
+
         // Get Liu ID
         for (int i = 0; i < LIU_ID_LEN; i++) {
             temp_liu_id[i] = EEPROM.read(i+UID_LENGTH+ptr);
         }
         temp_liu_id[LIU_ID_LEN] = '\0';
 
-        
+
         memcpy(users[user_count].uid, temp_uid, UID_LENGTH);
         strcpy(users[user_count].liu_id, temp_liu_id);
         user_count+=1;
